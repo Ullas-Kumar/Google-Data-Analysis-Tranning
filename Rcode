@@ -1,0 +1,127 @@
+install.packages("tidyverse")
+install.packages("lubridate")
+install.packages("ggplot2")
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+
+(Divvy_Trips_2019_Q4 <- rename(Divvy_Trips_2019_Q4
+                   ,ride_id = trip_id
+                   ,rideable_type = bikeid 
+                   ,started_at = start_time  
+                   ,ended_at = end_time  
+                   ,start_station_name = from_station_name 
+                   ,start_station_id = from_station_id 
+                   ,end_station_name = to_station_name 
+                   ,end_station_id = to_station_id 
+                   ,member_casual = usertype))
+
+(Divvy_Trips_2019_Q3 <- rename(Divvy_Trips_2019_Q3
+                   ,ride_id = trip_id
+                   ,rideable_type = bikeid 
+                   ,started_at = start_time  
+                   ,ended_at = end_time  
+                   ,start_station_name = from_station_name 
+                   ,start_station_id = from_station_id 
+                   ,end_station_name = to_station_name 
+                   ,end_station_id = to_station_id 
+                   ,member_casual = usertype))
+
+(Divvy_Trips_2019_Q2 <- rename(Divvy_Trips_2019_Q2
+                   ,ride_id = "01 - Rental Details Rental ID"
+                   ,rideable_type = "01 - Rental Details Bike ID" 
+                   ,started_at = "01 - Rental Details Local Start Time"  
+                   ,ended_at = "01 - Rental Details Local End Time"  
+                   ,start_station_name = "03 - Rental Start Station Name" 
+                   ,start_station_id = "03 - Rental Start Station ID"
+                   ,end_station_name = "02 - Rental End Station Name" 
+                   ,end_station_id = "02 - Rental End Station ID"
+                   ,member_casual = "User Type"))
+
+Divvy_Trips_2019_Q4 <-  mutate(Divvy_Trips_2019_Q4, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type)) 
+Divvy_Trips_2019_Q3 <-  mutate(Divvy_Trips_2019_Q3, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type)) 
+Divvy_Trips_2019_Q2 <-  mutate(Divvy_Trips_2019_Q2, ride_id = as.character(ride_id)
+                   ,rideable_type = as.character(rideable_type)) 
+
+trips_1<-trips %>% select(-c(start_lat,start_lng,end_lat,end_lng,birthyear,gender,"01 - Rental Details Duration In Seconds Uncapped", "05 - Member Details Member Birthday Year", "Member Gender", "tripduration"))
+
+colnames(trips_1)
+dim(trips_1)
+head(trips_1)
+str(trips_1)
+summary(trips_1)
+
+table(trips_1$member_casual)
+
+trips_1<- trips_1 %>% mutate(member_casual=recode(member_casual,"Subscriber"="member","Customer"="casual"))
+
+table(trips_1$member_casual)
+
+trips_1$date <- as.Date(trips_1$started_at) 
+trips_1$month <- format(as.Date(trips_1$date), "%m")
+trips_1$day <- format(as.Date(trips_1$date), "%d")
+trips_1$year <- format(as.Date(trips_1$date), "%Y")
+trips_1$day_of_week <- format(as.Date(trips_1$date), "%A")
+
+trips_1$ride_length<-difftime(trips_1$ended_at,trips_1$started_at)
+is.factor(trips_1$ride_length)
+trips_1$ride_length <- as.numeric(as.character(trips_1$ride_length))
+is.numeric(trips_1$ride_length)
+
+
+all_trips_v2 <- trips_1[!(trips_1$start_station_name == "HQ QR" | trips_1$ride_length<0),]
+
+
+mean(all_trips_v2$ride_length) 
+median(all_trips_v2$ride_length)
+max(all_trips_v2$ride_length) 
+min(all_trips_v2$ride_length) 
+
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = mean)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = median)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = max)
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual, FUN = min)
+
+
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual + all_trips_v2$day_of_week, FUN = mean)
+
+all_trips_v2$day_of_week <- ordered(all_trips_v2$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+
+
+aggregate(all_trips_v2$ride_length ~ all_trips_v2$member_casual + all_trips_v2$day_of_week, FUN = mean)
+
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>%  
+  group_by(member_casual, weekday) %>%  
+  summarise(number_of_rides = n()							 
+            ,average_duration = mean(ride_length)) %>% 		
+  arrange(member_casual, weekday)			
+
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge")
+
+all_trips_v2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
+  geom_col(position = "dodge")
+
+
+trips<-read.csv("trips.csv")
+colnames(trips)
+
+trips$month <- as.numeric(as.character(trips$month))
+trips%>% group_by(month,member_casual) %>% summarise(months_number=n())%>% mutate(m=months_number) %>% ggplot(aes(x = month.abb[month], y = m, fill=member_casual)) +
+  geom_col(position = "dodge")
+
